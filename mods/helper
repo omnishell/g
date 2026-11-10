@@ -1,0 +1,52 @@
+#! /bin/bash
+
+__helper__() {
+    _g_get_types() {
+        local types
+        types=$(git config --global --get-all g.commit.type 2>/dev/null)
+        if [[ -z "$types" ]]; then
+            printf "%s\n" feat fix ref ci conf doc
+        else
+            printf "%s\n" "$types"
+        fi
+    }
+
+    _g_get_contexts() {
+        git config --global --get-all g.commit.context 2>/dev/null || true
+    }
+
+    _g_unstaged_files_relative() {
+        local repo_root file abs rel files=()
+        repo_root=$(git rev-parse --show-toplevel 2>/dev/null) || return
+        while IFS= read -r file; do
+            abs="$repo_root/$file"
+            if command -v realpath >/dev/null 2>&1; then rel=$(realpath --relative-to="$PWD" "$abs" 2>/dev/null || printf '%s' "$file")
+            else rel="$file"; fi
+            files+=("$rel")
+        done < <({ git diff --name-only; git ls-files --others --exclude-standard; } 2>/dev/null | sort -u)
+        printf '%s\n' "${files[@]}"
+    }
+
+    _g_staged_files_relative() {
+        local repo_root file abs rel files=()
+        repo_root=$(git rev-parse --show-toplevel 2>/dev/null) || return
+        while IFS= read -r file; do
+            abs="$repo_root/$file"
+            if command -v realpath >/dev/null 2>&1; then rel=$(realpath --relative-to="$PWD" "$abs" 2>/dev/null || printf '%s' "$file")
+            else rel="$file"; fi
+            files+=("$rel")
+        done < <(git diff --cached --name-only 2>/dev/null)
+        printf '%s\n' "${files[@]}"
+    }
+
+    _g_filter_candidates_not_used() {
+        local candidates=("$@") used=() i c u skip out=()
+        for (( i=2; i<COMP_CWORD; i++ )); do used+=("${COMP_WORDS[i]}"); done
+        for c in "${candidates[@]}"; do
+            skip=0
+            for u in "${used[@]}"; do [[ "$c" == "$u" ]] && { skip=1; break; }; done
+            (( !skip )) && out+=("$c")
+        done
+        printf '%s\n' "${out[@]}"
+    }
+}
